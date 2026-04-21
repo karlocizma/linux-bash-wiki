@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guide & Glossary | Linux Bash Starter Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div>
+        <h1>Guide & Glossary</h1>
+        <p class="subtitle">Simple explanations for beginners using Bash scripts.</p>
+      </div>
+      <nav aria-label="Guide navigation">
+        <a href="index.html">Home</a>
+        <a href="index.html#library">Script Library</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container guide-page">
+    <section class="panel">
+      <h2>Safe script workflow</h2>
+      <ol>
+        <li>Read the script from top to bottom before running it.</li>
+        <li>Check if it uses <code>sudo</code>, and confirm every privileged command makes sense to you.</li>
+        <li>Run on a test machine first when possible.</li>
+        <li>Keep backups for files you might change (network configs, service configs, user data).</li>
+        <li>Run one script at a time and verify output before moving on.</li>
+      </ol>
+    </section>
+
+    <section class="panel">
+      <h2>Glossary</h2>
+      <ul class="glossary">
+        <li><strong>Bash:</strong> A command-line shell used to run commands and scripts.</li>
+        <li><strong>Script:</strong> A text file containing commands executed in sequence.</li>
+        <li><strong>sudo:</strong> Run a command with elevated privileges (administrator/root).</li>
+        <li><strong>chmod:</strong> Change file permissions (read/write/execute).</li>
+        <li><strong>chown:</strong> Change file owner and group.</li>
+        <li><strong>systemctl:</strong> Manage Linux services with systemd.</li>
+        <li><strong>journalctl:</strong> View systemd logs.</li>
+        <li><strong>nmcli:</strong> Command-line tool for NetworkManager.</li>
+        <li><strong>tar:</strong> Archive files/folders for backup and restore.</li>
+        <li><strong>firewalld:</strong> Firewall service managed with <code>firewall-cmd</code>.</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Troubleshooting quick fixes</h2>
+      <ul>
+        <li>
+          <strong>permission denied</strong><br>
+          You may be missing execute permission. Run <code>chmod +x script.sh</code> then try again.
+        </li>
+        <li>
+          <strong>command not found</strong><br>
+          Install the required package (example: <code>nmcli</code> is usually from NetworkManager tools).
+        </li>
+        <li>
+          <strong>service not found</strong><br>
+          Confirm service name with <code>systemctl list-unit-files --type=service</code>.
+        </li>
+        <li>
+          <strong>network disconnected after change</strong><br>
+          Use the DHCP revert script in the library or reconnect from a local console.
+        </li>
+        <li>
+          <strong>archive restore failed</strong><br>
+          Verify file path, destination permissions, and test archive integrity with
+          <code>tar -tzf backup.tar.gz</code>.
+        </li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Return to the <a href="index.html#library">Script Library</a> to continue.</p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Linux Bash Starter Wiki</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div>
+        <h1>Linux Bash Starter Wiki</h1>
+        <p class="subtitle">Beginner-friendly scripts with plain explanations and safe defaults.</p>
+      </div>
+      <nav aria-label="Main navigation">
+        <a href="#home">Home</a>
+        <a href="#library">Script Library</a>
+        <a href="#deploy">How to Deploy</a>
+        <a href="guide.html">Guide & Glossary</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero" id="home">
+      <h2>Practical Linux Bash tasks for new users</h2>
+      <p>
+        This wiki gives you reusable scripts for common Linux jobs: networking, hostname changes, permissions, users,
+        password resets, services, logs, backups, updates, and basic security checks.
+      </p>
+      <div class="panel">
+        <h3>Safety first</h3>
+        <ul>
+          <li>Read each script before running it.</li>
+          <li>Use non-production systems first when possible.</li>
+          <li>Only run commands with <code>sudo</code> when you understand why root permissions are needed.</li>
+          <li>Back up important files before making system-level changes.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="quick-start" id="deploy">
+      <h2>Quick deploy pattern</h2>
+      <ol>
+        <li>Open a script in the library and click <strong>Copy Script</strong> or <strong>Download</strong>.</li>
+        <li>Save it as a file, for example <code>my-script.sh</code>.</li>
+        <li>Give execute permission: <code>chmod +x my-script.sh</code>.</li>
+        <li>Run it: <code>./my-script.sh</code> (or <code>sudo ./my-script.sh</code> only if needed).</li>
+      </ol>
+      <p class="small-note">
+        If you are unsure, open <a href="guide.html">Guide & Glossary</a> for beginner explanations and troubleshooting.
+      </p>
+    </section>
+
+    <section class="library" id="library">
+      <div class="section-header">
+        <h2>Script Library</h2>
+        <p id="resultsCount" class="small-note">Loading scripts…</p>
+      </div>
+
+      <div class="filters">
+        <label>
+          Search
+          <input id="searchInput" type="search" placeholder="Try: hostname, password, disk, backup">
+        </label>
+
+        <label>
+          Category
+          <select id="categoryFilter">
+            <option value="all">All categories</option>
+          </select>
+        </label>
+
+        <label>
+          Risk
+          <select id="riskFilter">
+            <option value="all">All risk levels</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+
+        <label>
+          Sort
+          <select id="sortFilter">
+            <option value="title">Title (A-Z)</option>
+            <option value="risk">Risk (Low→High)</option>
+            <option value="category">Category (A-Z)</option>
+          </select>
+        </label>
+      </div>
+
+      <p id="statusMessage" class="status-message" aria-live="polite"></p>
+
+      <div class="library-layout">
+        <div id="scriptGrid" class="script-grid" aria-live="polite"></div>
+        <aside id="scriptDetail" class="script-detail">
+          <h3>Select a script</h3>
+          <p>
+            Choose a script card to see full instructions, prerequisites, expected output, rollback notes, and
+            copy/download actions.
+          </p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="help-panel">
+      <h2>Need beginner help?</h2>
+      <p>
+        Open the guide for command meanings, safety habits, and solutions for common errors like
+        <code>permission denied</code>, missing commands, or service failures.
+      </p>
+      <a class="button secondary" href="guide.html">Open Guide & Glossary</a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Linux Bash Starter Wiki • Built for learning and safe daily operations.</p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,911 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-04-21",
+  "scripts": [
+    {
+      "id": "network_snapshot",
+      "title": "Network snapshot (IP, gateway, DNS)",
+      "category": "Networking",
+      "risk": "low",
+      "requires_sudo": false,
+      "filename": "network-snapshot.sh",
+      "summary": "Print current network settings for troubleshooting without changing anything.",
+      "tags": [
+        "ip",
+        "dns",
+        "gateway",
+        "networking",
+        "troubleshooting"
+      ],
+      "prerequisites": [
+        "iproute2 tools installed (ip command)"
+      ],
+      "steps": [
+        "Run script as normal user.",
+        "Review interface addresses, default route, and DNS output.",
+        "Save output before making network changes."
+      ],
+      "expected_output": [
+        "Hostname, interface list, default route, and DNS server lines."
+      ],
+      "rollback": "No rollback required. Script is read-only.",
+      "notes": [
+        "Use this first before and after network changes to compare state."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "echo \"=== Hostname ===\"",
+        "hostnamectl --static",
+        "echo",
+        "echo \"=== IP addresses ===\"",
+        "ip -brief addr",
+        "echo",
+        "echo \"=== Default route ===\"",
+        "ip route | awk '/default/ {print $0}'",
+        "echo",
+        "echo \"=== DNS servers ===\"",
+        "grep '^nameserver' /etc/resolv.conf || echo \"No nameserver entries found\""
+      ]
+    },
+    {
+      "id": "set_static_ip_nmcli",
+      "title": "Set static IP with NetworkManager (nmcli)",
+      "category": "Networking",
+      "risk": "high",
+      "requires_sudo": true,
+      "filename": "set-static-ip-nmcli.sh",
+      "summary": "Switch a NetworkManager connection to static IPv4 with gateway and DNS.",
+      "tags": [
+        "ip",
+        "static-ip",
+        "nmcli",
+        "networkmanager"
+      ],
+      "prerequisites": [
+        "NetworkManager and nmcli available",
+        "You have console access in case network drops"
+      ],
+      "steps": [
+        "Run the script and choose an existing connection name.",
+        "Enter static IP/CIDR, gateway, and DNS servers.",
+        "Verify connectivity with ping after script completes."
+      ],
+      "expected_output": [
+        "Connection profile shows static IPv4 address and DNS values."
+      ],
+      "rollback": "Use the DHCP revert script in this wiki for the same connection.",
+      "notes": [
+        "Wrong values can disconnect the machine.",
+        "Best practice: test on non-critical systems first."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "echo \"Available connections:\"",
+        "nmcli -t -f NAME,DEVICE connection show",
+        "read -rp \"Connection name: \" CONN",
+        "read -rp \"IPv4 with CIDR (example 192.168.1.50/24): \" IP_CIDR",
+        "read -rp \"Gateway IPv4: \" GATEWAY",
+        "read -rp \"DNS servers comma-separated (example 1.1.1.1,8.8.8.8): \" DNS",
+        "sudo nmcli connection modify \"$CONN\" ipv4.method manual ipv4.addresses \"$IP_CIDR\" ipv4.gateway \"$GATEWAY\" ipv4.dns \"$DNS\"",
+        "sudo nmcli connection up \"$CONN\"",
+        "nmcli -f NAME,DEVICE,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS connection show \"$CONN\""
+      ]
+    },
+    {
+      "id": "switch_to_dhcp_nmcli",
+      "title": "Revert NetworkManager connection to DHCP",
+      "category": "Networking",
+      "risk": "medium",
+      "requires_sudo": true,
+      "filename": "revert-dhcp-nmcli.sh",
+      "summary": "Set an nmcli connection back to automatic DHCP settings.",
+      "tags": [
+        "dhcp",
+        "nmcli",
+        "recovery",
+        "networking"
+      ],
+      "prerequisites": [
+        "NetworkManager and nmcli available"
+      ],
+      "steps": [
+        "Run script and pick connection previously modified.",
+        "Script switches ipv4.method to auto and removes manual values.",
+        "Reconnect and verify new DHCP address."
+      ],
+      "expected_output": [
+        "Connection shows new DHCP-assigned IPv4 address."
+      ],
+      "rollback": "Reapply a known-good static profile if DHCP does not work.",
+      "notes": [
+        "Useful as immediate rollback after bad static IP configuration."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "echo \"Available connections:\"",
+        "nmcli -t -f NAME,DEVICE connection show",
+        "read -rp \"Connection name to revert: \" CONN",
+        "sudo nmcli connection modify \"$CONN\" ipv4.method auto ipv4.addresses \"\" ipv4.gateway \"\" ipv4.dns \"\"",
+        "sudo nmcli connection up \"$CONN\"",
+        "nmcli -f NAME,DEVICE,IP4.ADDRESS connection show \"$CONN\""
+      ]
+    },
+    {
+      "id": "change_hostname",
+      "title": "Change system hostname",
+      "category": "System Identity",
+      "risk": "medium",
+      "requires_sudo": true,
+      "filename": "change-hostname.sh",
+      "summary": "Safely set a new persistent hostname with hostnamectl.",
+      "tags": [
+        "hostname",
+        "identity",
+        "system"
+      ],
+      "prerequisites": [
+        "systemd/hostnamectl available"
+      ],
+      "steps": [
+        "Run script and enter new hostname (letters, numbers, hyphens).",
+        "Script applies hostname and prints result.",
+        "Re-login or reboot if tools still show old hostname."
+      ],
+      "expected_output": [
+        "hostnamectl output shows updated static hostname."
+      ],
+      "rollback": "Run script again and set previous hostname value.",
+      "notes": [
+        "Changing hostname can affect monitoring and inventory tools."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "echo \"Current hostname: $(hostnamectl --static)\"",
+        "read -rp \"New hostname: \" NEW_HOST",
+        "if [[ -z \"$NEW_HOST\" ]]; then",
+        "  echo \"Hostname cannot be empty\"",
+        "  exit 1",
+        "fi",
+        "sudo hostnamectl set-hostname \"$NEW_HOST\"",
+        "echo \"Hostname updated. You may need to re-login.\"",
+        "hostnamectl"
+      ]
+    },
+    {
+      "id": "fix_recursive_ownership",
+      "title": "Fix folder ownership recursively",
+      "category": "Permissions & Files",
+      "risk": "high",
+      "requires_sudo": true,
+      "filename": "fix-recursive-ownership.sh",
+      "summary": "Recursively set user and group owner for a directory tree.",
+      "tags": [
+        "ownership",
+        "chown",
+        "permissions",
+        "files"
+      ],
+      "prerequisites": [
+        "Directory path exists",
+        "Correct username and group known"
+      ],
+      "steps": [
+        "Provide target directory, user, and group.",
+        "Script runs chown -R and prints resulting directory owner.",
+        "Verify application behavior after ownership update."
+      ],
+      "expected_output": [
+        "Top directory shows requested owner and group."
+      ],
+      "rollback": "Run again with previous owner:group values if needed.",
+      "notes": [
+        "Incorrect ownership can break apps and services.",
+        "Avoid using this on system directories unless required."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Directory to fix ownership: \" TARGET_DIR",
+        "read -rp \"Owner user: \" OWNER_USER",
+        "read -rp \"Owner group: \" OWNER_GROUP",
+        "if [[ ! -d \"$TARGET_DIR\" ]]; then",
+        "  echo \"Directory not found: $TARGET_DIR\"",
+        "  exit 1",
+        "fi",
+        "sudo chown -R \"$OWNER_USER:$OWNER_GROUP\" \"$TARGET_DIR\"",
+        "echo \"Ownership updated:\"",
+        "ls -ld \"$TARGET_DIR\""
+      ]
+    },
+    {
+      "id": "normalize_permissions_755_644",
+      "title": "Normalize permissions (dirs 755, files 644)",
+      "category": "Permissions & Files",
+      "risk": "medium",
+      "requires_sudo": false,
+      "filename": "normalize-permissions.sh",
+      "summary": "Set common safe defaults: directories 755, files 644.",
+      "tags": [
+        "chmod",
+        "permissions",
+        "files"
+      ],
+      "prerequisites": [
+        "You own target files or have sufficient privileges"
+      ],
+      "steps": [
+        "Enter target directory.",
+        "Script updates directory and file modes recursively.",
+        "Reapply execute permissions to scripts/binaries when needed."
+      ],
+      "expected_output": [
+        "Confirmation message after find/chmod commands complete."
+      ],
+      "rollback": "Restore from backup or manually reset modes for special files.",
+      "notes": [
+        "Some applications require custom permissions.",
+        "Not recommended for executable bin folders unless you review first."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Directory to normalize permissions: \" TARGET_DIR",
+        "if [[ ! -d \"$TARGET_DIR\" ]]; then",
+        "  echo \"Directory not found: $TARGET_DIR\"",
+        "  exit 1",
+        "fi",
+        "find \"$TARGET_DIR\" -type d -exec chmod 755 {} +",
+        "find \"$TARGET_DIR\" -type f -exec chmod 644 {} +",
+        "echo \"Done: directories=755, files=644\""
+      ]
+    },
+    {
+      "id": "make_script_executable",
+      "title": "Make a script executable",
+      "category": "Permissions & Files",
+      "risk": "low",
+      "requires_sudo": false,
+      "filename": "make-script-executable.sh",
+      "summary": "Apply execute permission to a shell script and show result.",
+      "tags": [
+        "chmod",
+        "script",
+        "execute"
+      ],
+      "prerequisites": [
+        "Script file exists"
+      ],
+      "steps": [
+        "Enter script path.",
+        "Script runs chmod +x and prints file permissions."
+      ],
+      "expected_output": [
+        "File mode includes executable bit (x)."
+      ],
+      "rollback": "Run chmod -x <script> if execute bit should be removed.",
+      "notes": [
+        "This is one of the most common beginner fixes for 'permission denied'."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Script file path: \" SCRIPT_PATH",
+        "if [[ ! -f \"$SCRIPT_PATH\" ]]; then",
+        "  echo \"File not found: $SCRIPT_PATH\"",
+        "  exit 1",
+        "fi",
+        "chmod +x \"$SCRIPT_PATH\"",
+        "ls -l \"$SCRIPT_PATH\""
+      ]
+    },
+    {
+      "id": "create_admin_user",
+      "title": "Create new user and grant admin group",
+      "category": "Users & Passwords",
+      "risk": "high",
+      "requires_sudo": true,
+      "filename": "create-admin-user.sh",
+      "summary": "Create user account and add to wheel/sudo admin group.",
+      "tags": [
+        "users",
+        "sudo",
+        "wheel",
+        "accounts"
+      ],
+      "prerequisites": [
+        "You have existing admin/root access"
+      ],
+      "steps": [
+        "Enter a new username.",
+        "Set user password when prompted by passwd.",
+        "Script adds user to wheel or sudo group if present."
+      ],
+      "expected_output": [
+        "id output shows created user and group memberships."
+      ],
+      "rollback": "Use userdel -r <username> only if you are sure account should be removed.",
+      "notes": [
+        "Never remove your only working admin account until new account is verified."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"New username: \" NEW_USER",
+        "if id \"$NEW_USER\" >/dev/null 2>&1; then",
+        "  echo \"User already exists: $NEW_USER\"",
+        "  exit 1",
+        "fi",
+        "sudo useradd -m -s /bin/bash \"$NEW_USER\"",
+        "sudo passwd \"$NEW_USER\"",
+        "if getent group wheel >/dev/null; then",
+        "  sudo usermod -aG wheel \"$NEW_USER\"",
+        "  ADMIN_GROUP=\"wheel\"",
+        "elif getent group sudo >/dev/null; then",
+        "  sudo usermod -aG sudo \"$NEW_USER\"",
+        "  ADMIN_GROUP=\"sudo\"",
+        "else",
+        "  ADMIN_GROUP=\"none-found\"",
+        "fi",
+        "echo \"Created user: $NEW_USER (admin group: $ADMIN_GROUP)\"",
+        "id \"$NEW_USER\""
+      ]
+    },
+    {
+      "id": "reset_user_password",
+      "title": "Reset a user's password",
+      "category": "Users & Passwords",
+      "risk": "high",
+      "requires_sudo": true,
+      "filename": "reset-user-password.sh",
+      "summary": "Reset password for an existing account using passwd.",
+      "tags": [
+        "password",
+        "users",
+        "recovery"
+      ],
+      "prerequisites": [
+        "Admin privileges",
+        "Target username exists"
+      ],
+      "steps": [
+        "Enter target username.",
+        "Type a new password when passwd prompts.",
+        "Inform user to test login immediately."
+      ],
+      "expected_output": [
+        "passwd prints success message after update."
+      ],
+      "rollback": "Run script again to set a different password if needed.",
+      "notes": [
+        "For forgotten root password from boot/recovery mode, follow distro-specific rescue docs."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Username to reset password: \" TARGET_USER",
+        "if ! id \"$TARGET_USER\" >/dev/null 2>&1; then",
+        "  echo \"User not found: $TARGET_USER\"",
+        "  exit 1",
+        "fi",
+        "sudo passwd \"$TARGET_USER\"",
+        "echo \"Password reset completed for $TARGET_USER\""
+      ]
+    },
+    {
+      "id": "force_password_rotation",
+      "title": "Force password change on next login",
+      "category": "Users & Passwords",
+      "risk": "medium",
+      "requires_sudo": true,
+      "filename": "force-password-change.sh",
+      "summary": "Expire current password so user must change it at next login.",
+      "tags": [
+        "password",
+        "security",
+        "chage"
+      ],
+      "prerequisites": [
+        "Admin privileges",
+        "Target username exists"
+      ],
+      "steps": [
+        "Enter target username.",
+        "Script sets password last-change date to 0.",
+        "Review policy output from chage -l."
+      ],
+      "expected_output": [
+        "chage report indicates password must be changed."
+      ],
+      "rollback": "Set a new password with passwd and adjust aging policy with chage if needed.",
+      "notes": [
+        "Useful after temporary password resets."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Username: \" TARGET_USER",
+        "if ! id \"$TARGET_USER\" >/dev/null 2>&1; then",
+        "  echo \"User not found: $TARGET_USER\"",
+        "  exit 1",
+        "fi",
+        "sudo chage -d 0 \"$TARGET_USER\"",
+        "sudo chage -l \"$TARGET_USER\""
+      ]
+    },
+    {
+      "id": "service_health_check",
+      "title": "Check service health quickly",
+      "category": "Services",
+      "risk": "low",
+      "requires_sudo": true,
+      "filename": "service-health-check.sh",
+      "summary": "Show active/enabled status and recent logs for a systemd service.",
+      "tags": [
+        "systemctl",
+        "service",
+        "status",
+        "logs"
+      ],
+      "prerequisites": [
+        "System uses systemd"
+      ],
+      "steps": [
+        "Enter service name (example: sshd, nginx, docker).",
+        "Review active/enabled state and last log lines."
+      ],
+      "expected_output": [
+        "Service state and recent journal entries."
+      ],
+      "rollback": "No rollback needed; this script reads status only.",
+      "notes": [
+        "If service name is unknown, run: systemctl list-unit-files --type=service"
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Service name: \" SERVICE",
+        "echo \"=== is-active ===\"",
+        "systemctl is-active \"$SERVICE\" || true",
+        "echo \"=== is-enabled ===\"",
+        "systemctl is-enabled \"$SERVICE\" || true",
+        "echo \"=== recent logs ===\"",
+        "sudo journalctl -u \"$SERVICE\" -n 30 --no-pager || true"
+      ]
+    },
+    {
+      "id": "safe_service_restart",
+      "title": "Restart service with confirmation",
+      "category": "Services",
+      "risk": "medium",
+      "requires_sudo": true,
+      "filename": "safe-service-restart.sh",
+      "summary": "Show current status, ask for confirmation, then restart a service.",
+      "tags": [
+        "systemctl",
+        "restart",
+        "service"
+      ],
+      "prerequisites": [
+        "System uses systemd",
+        "You know expected service behavior after restart"
+      ],
+      "steps": [
+        "Enter service name.",
+        "Review current status preview.",
+        "Type yes to confirm restart."
+      ],
+      "expected_output": [
+        "Final status output reflects service after restart attempt."
+      ],
+      "rollback": "Use systemctl start/stop/restart with known-good configuration backups.",
+      "notes": [
+        "Restarting production services can cause user-visible downtime."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Service to restart: \" SERVICE",
+        "systemctl status \"$SERVICE\" --no-pager || true",
+        "read -rp \"Restart this service now? (yes/no): \" ANSWER",
+        "if [[ \"$ANSWER\" != \"yes\" ]]; then",
+        "  echo \"Cancelled.\"",
+        "  exit 0",
+        "fi",
+        "sudo systemctl restart \"$SERVICE\"",
+        "sudo systemctl status \"$SERVICE\" --no-pager"
+      ]
+    },
+    {
+      "id": "disk_usage_audit",
+      "title": "Audit disk usage and large /var folders",
+      "category": "Disk & Cleanup",
+      "risk": "low",
+      "requires_sudo": true,
+      "filename": "disk-usage-audit.sh",
+      "summary": "Display filesystem usage and largest top-level directories under /var.",
+      "tags": [
+        "disk",
+        "storage",
+        "df",
+        "du"
+      ],
+      "prerequisites": [
+        "du, df, sort commands available"
+      ],
+      "steps": [
+        "Run script and inspect full filesystem usage.",
+        "Check large /var paths before cleanup decisions."
+      ],
+      "expected_output": [
+        "df table and size-sorted /var directory list."
+      ],
+      "rollback": "No rollback needed; script is read-only.",
+      "notes": [
+        "Use this before deleting logs/cache to target biggest space consumers."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "echo \"=== Filesystem usage ===\"",
+        "df -hT",
+        "echo",
+        "echo \"=== Top 20 largest directories under /var ===\"",
+        "sudo du -xhd1 /var 2>/dev/null | sort -h | tail -n 20"
+      ]
+    },
+    {
+      "id": "cleanup_journal_days",
+      "title": "Clean old systemd journal logs",
+      "category": "Disk & Cleanup",
+      "risk": "medium",
+      "requires_sudo": true,
+      "filename": "cleanup-journal.sh",
+      "summary": "Vacuum journal logs older than specified days to recover disk space.",
+      "tags": [
+        "journalctl",
+        "logs",
+        "cleanup",
+        "disk"
+      ],
+      "prerequisites": [
+        "systemd journalctl present"
+      ],
+      "steps": [
+        "Review current journal disk usage shown by script.",
+        "Enter retention days (example: 7).",
+        "Script vacuums old logs and prints new usage."
+      ],
+      "expected_output": [
+        "journalctl reports reduced disk usage after vacuum."
+      ],
+      "rollback": "Old logs removed by vacuum cannot be restored unless backed up.",
+      "notes": [
+        "Keep enough days for troubleshooting and audit needs."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "echo \"Current journal disk usage:\"",
+        "sudo journalctl --disk-usage",
+        "read -rp \"Keep how many days of logs? (example 7): \" DAYS",
+        "sudo journalctl --vacuum-time=\"${DAYS}d\"",
+        "echo \"Updated journal disk usage:\"",
+        "sudo journalctl --disk-usage"
+      ]
+    },
+    {
+      "id": "recent_system_errors",
+      "title": "Show recent critical system errors",
+      "category": "Logs & Troubleshooting",
+      "risk": "low",
+      "requires_sudo": false,
+      "filename": "recent-system-errors.sh",
+      "summary": "Show priority 3 (errors) from current boot and list failed services.",
+      "tags": [
+        "logs",
+        "errors",
+        "journalctl",
+        "systemctl"
+      ],
+      "prerequisites": [
+        "System uses systemd"
+      ],
+      "steps": [
+        "Run script as normal user.",
+        "Scan error logs and failed units.",
+        "Use service-specific scripts for deeper checks."
+      ],
+      "expected_output": [
+        "Error log lines and list of failed units."
+      ],
+      "rollback": "No rollback needed; this script reads status only.",
+      "notes": [
+        "Some logs may require sudo depending on system settings."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "echo \"=== Kernel/System errors (this boot) ===\"",
+        "journalctl -p 3 -xb --no-pager || true",
+        "echo",
+        "echo \"=== Failed services ===\"",
+        "systemctl --failed --no-pager"
+      ]
+    },
+    {
+      "id": "tail_service_logs",
+      "title": "Follow live logs of one service",
+      "category": "Logs & Troubleshooting",
+      "risk": "low",
+      "requires_sudo": true,
+      "filename": "tail-service-logs.sh",
+      "summary": "Stream live journal logs for a selected systemd service.",
+      "tags": [
+        "logs",
+        "journalctl",
+        "service",
+        "live"
+      ],
+      "prerequisites": [
+        "System uses systemd",
+        "Service name is known"
+      ],
+      "steps": [
+        "Run script and provide service name.",
+        "Watch live logs and stop with Ctrl+C."
+      ],
+      "expected_output": [
+        "Continuous log lines from selected service."
+      ],
+      "rollback": "No rollback needed; this script reads logs only.",
+      "notes": [
+        "Very useful after restart or config changes."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Service name for live logs: \" SERVICE",
+        "echo \"Press Ctrl+C to stop log streaming.\"",
+        "sudo journalctl -u \"$SERVICE\" -f --no-pager"
+      ]
+    },
+    {
+      "id": "backup_directory_tar",
+      "title": "Create timestamped tar.gz backup",
+      "category": "Backup & Restore",
+      "risk": "medium",
+      "requires_sudo": false,
+      "filename": "backup-directory-tar.sh",
+      "summary": "Create compressed backup archive from a selected directory.",
+      "tags": [
+        "backup",
+        "tar",
+        "archive",
+        "restore"
+      ],
+      "prerequisites": [
+        "tar command available",
+        "Enough disk space at destination"
+      ],
+      "steps": [
+        "Enter source directory and backup destination directory.",
+        "Script creates timestamped .tar.gz archive.",
+        "Test archive listing with tar -tzf."
+      ],
+      "expected_output": [
+        "Path to created archive file."
+      ],
+      "rollback": "No rollback needed; script creates new file only.",
+      "notes": [
+        "Schedule this script with cron/systemd timers for regular backups."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Source directory to back up: \" SRC_DIR",
+        "read -rp \"Backup destination directory: \" DEST_DIR",
+        "if [[ ! -d \"$SRC_DIR\" ]]; then",
+        "  echo \"Source directory does not exist: $SRC_DIR\"",
+        "  exit 1",
+        "fi",
+        "mkdir -p \"$DEST_DIR\"",
+        "TIMESTAMP=$(date +%Y%m%d-%H%M%S)",
+        "BASENAME=$(basename \"$SRC_DIR\")",
+        "ARCHIVE_PATH=\"${DEST_DIR}/${BASENAME}-${TIMESTAMP}.tar.gz\"",
+        "tar -czf \"$ARCHIVE_PATH\" -C \"$(dirname \"$SRC_DIR\")\" \"$BASENAME\"",
+        "echo \"Backup created: $ARCHIVE_PATH\""
+      ]
+    },
+    {
+      "id": "restore_tar_backup",
+      "title": "Restore tar.gz backup to destination",
+      "category": "Backup & Restore",
+      "risk": "high",
+      "requires_sudo": false,
+      "filename": "restore-tar-backup.sh",
+      "summary": "Preview backup content and extract to a chosen target directory.",
+      "tags": [
+        "restore",
+        "backup",
+        "tar",
+        "recovery"
+      ],
+      "prerequisites": [
+        "tar command available",
+        "Destination path writable"
+      ],
+      "steps": [
+        "Enter archive path and destination directory.",
+        "Review preview list from archive.",
+        "Type yes to confirm extraction."
+      ],
+      "expected_output": [
+        "Files extracted to destination directory."
+      ],
+      "rollback": "Delete extracted files or restore from previous state if destination conflicts.",
+      "notes": [
+        "Restore into an empty temporary path first when possible."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Archive file (.tar.gz): \" ARCHIVE_PATH",
+        "read -rp \"Restore destination directory: \" DEST_DIR",
+        "if [[ ! -f \"$ARCHIVE_PATH\" ]]; then",
+        "  echo \"Archive not found: $ARCHIVE_PATH\"",
+        "  exit 1",
+        "fi",
+        "mkdir -p \"$DEST_DIR\"",
+        "echo \"Archive preview (first 20 entries):\"",
+        "tar -tzf \"$ARCHIVE_PATH\" | head -n 20",
+        "read -rp \"Extract archive into $DEST_DIR ? (yes/no): \" ANSWER",
+        "if [[ \"$ANSWER\" != \"yes\" ]]; then",
+        "  echo \"Cancelled.\"",
+        "  exit 0",
+        "fi",
+        "tar -xzf \"$ARCHIVE_PATH\" -C \"$DEST_DIR\"",
+        "echo \"Restore completed.\""
+      ]
+    },
+    {
+      "id": "system_update_fedora",
+      "title": "Run system update with dnf",
+      "category": "Updates & Security",
+      "risk": "medium",
+      "requires_sudo": true,
+      "filename": "system-update-dnf.sh",
+      "summary": "Check and apply package updates on Fedora/RHEL-family systems using dnf.",
+      "tags": [
+        "updates",
+        "dnf",
+        "packages",
+        "security"
+      ],
+      "prerequisites": [
+        "dnf package manager available",
+        "Stable internet connection"
+      ],
+      "steps": [
+        "Script checks available updates.",
+        "Type yes to apply updates.",
+        "Reboot if kernel or critical libraries were updated."
+      ],
+      "expected_output": [
+        "dnf transaction summary and completion message."
+      ],
+      "rollback": "Package rollback is not always simple; snapshot/backup before major upgrades.",
+      "notes": [
+        "This script is for dnf-based distributions."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "sudo dnf check-update || true",
+        "read -rp \"Install all available updates now? (yes/no): \" ANSWER",
+        "if [[ \"$ANSWER\" != \"yes\" ]]; then",
+        "  echo \"Cancelled.\"",
+        "  exit 0",
+        "fi",
+        "sudo dnf upgrade -y",
+        "echo \"Update complete. Reboot if needed.\""
+      ]
+    },
+    {
+      "id": "ssh_security_audit",
+      "title": "Basic SSH hardening audit",
+      "category": "Updates & Security",
+      "risk": "low",
+      "requires_sudo": false,
+      "filename": "ssh-security-audit.sh",
+      "summary": "Print important SSH server settings and service state.",
+      "tags": [
+        "ssh",
+        "security",
+        "audit",
+        "sshd"
+      ],
+      "prerequisites": [
+        "OpenSSH server installed"
+      ],
+      "steps": [
+        "Run script and review printed SSH settings.",
+        "Check if root login and password authentication policies match your standards."
+      ],
+      "expected_output": [
+        "Current sshd_config lines for key security directives."
+      ],
+      "rollback": "No rollback required; script only reads config and service state.",
+      "notes": [
+        "After config edits, validate with sshd -t and restart sshd carefully."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "SSHD_CONFIG=\"/etc/ssh/sshd_config\"",
+        "if [[ ! -f \"$SSHD_CONFIG\" ]]; then",
+        "  echo \"sshd_config not found at $SSHD_CONFIG\"",
+        "  exit 1",
+        "fi",
+        "echo \"=== Key SSH settings ===\"",
+        "grep -Ei '^(PermitRootLogin|PasswordAuthentication|PubkeyAuthentication|Port|AllowUsers)' \"$SSHD_CONFIG\" || true",
+        "echo",
+        "echo \"=== sshd service state ===\"",
+        "systemctl is-active sshd || true",
+        "systemctl is-enabled sshd || true"
+      ]
+    },
+    {
+      "id": "firewall_open_common_services",
+      "title": "Open common firewall services (ssh/http/https)",
+      "category": "Updates & Security",
+      "risk": "high",
+      "requires_sudo": true,
+      "filename": "firewall-open-common-services.sh",
+      "summary": "Interactive firewalld helper to open selected common services.",
+      "tags": [
+        "firewall",
+        "firewalld",
+        "ssh",
+        "http",
+        "https"
+      ],
+      "prerequisites": [
+        "firewalld installed and active"
+      ],
+      "steps": [
+        "Choose which services to open.",
+        "Script applies permanent rules and reloads firewalld.",
+        "Validate resulting active zone configuration."
+      ],
+      "expected_output": [
+        "firewall-cmd --list-all output with selected services."
+      ],
+      "rollback": "Remove services using firewall-cmd --permanent --remove-service=<name> and reload.",
+      "notes": [
+        "Opening unnecessary ports increases attack surface."
+      ],
+      "script_lines": [
+        "#!/usr/bin/env bash",
+        "set -e",
+        "read -rp \"Open SSH service? (yes/no): \" OPEN_SSH",
+        "read -rp \"Open HTTP service? (yes/no): \" OPEN_HTTP",
+        "read -rp \"Open HTTPS service? (yes/no): \" OPEN_HTTPS",
+        "if [[ \"$OPEN_SSH\" == \"yes\" ]]; then",
+        "  sudo firewall-cmd --permanent --add-service=ssh",
+        "fi",
+        "if [[ \"$OPEN_HTTP\" == \"yes\" ]]; then",
+        "  sudo firewall-cmd --permanent --add-service=http",
+        "fi",
+        "if [[ \"$OPEN_HTTPS\" == \"yes\" ]]; then",
+        "  sudo firewall-cmd --permanent --add-service=https",
+        "fi",
+        "sudo firewall-cmd --reload",
+        "sudo firewall-cmd --list-all"
+      ]
+    }
+  ]
+}
